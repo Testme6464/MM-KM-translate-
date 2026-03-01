@@ -1,170 +1,98 @@
 <!DOCTYPE html>
 <html lang="my">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MM-KH Voice Translator</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .app-container { background: white; width: 95%; max-width: 420px; height: 85vh; border-radius: 30px; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(0,0,0,0.1); overflow: hidden; }
-        
-        .display-area { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 30px; text-align: center; }
-        .status { font-size: 14px; color: #032ea1; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
-        .original { font-size: 18px; color: #888; min-height: 30px; }
-        .translated { font-size: 26px; font-weight: bold; color: #333; margin-top: 15px; }
-
-        .footer { background: #eef2ff; padding: 30px; display: flex; flex-direction: column; align-items: center; border-radius: 40px 40px 0 0; gap: 20px; }
-        
-        .controls-row { display: flex; align-items: center; gap: 20px; }
-
-        /* အဓိက အသံဖမ်းခလုတ် */
-        .main-mic-btn {
-            width: 95px; height: 95px; border-radius: 50%; border: 5px solid #fff;
-            background-size: cover; background-position: center; cursor: pointer;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.15); transition: 0.3s;
-            display: flex; align-items: center; justify-content: center;
-        }
-        /* အလံပုံများကို Cambodia သို့ ပြောင်းထားသည် */
-        .btn-mm { background-image: linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.1)), url('https://flagcdn.com/w320/mm.png'); }
-        .btn-kh { background-image: linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.1)), url('https://flagcdn.com/w320/kh.png'); }
-
-        .side-btn {
-            width: 50px; height: 50px; border-radius: 50%; border: none;
-            background: #fff; color: #032ea1; font-size: 20px; cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center;
-            transition: 0.2s;
-        }
-        .side-btn:active { transform: scale(0.9); }
-
-        .listening { transform: scale(1.1); animation: pulse 1.5s infinite; border-color: #032ea1; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(3, 46, 161, 0.6); } 70% { box-shadow: 0 0 0 20px rgba(3, 46, 161, 0); } 100% { box-shadow: 0 0 0 0 rgba(3, 46, 161, 0); } }
-        
-        .hint { font-size: 13px; color: #032ea1; font-weight: 500; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ထိုင်းထီ စစ်ဆေးရာ</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 30px; background: #f8f9fa; }
+    h1 { color: #d32f2f; }
+    input { font-size: 1.4em; padding: 12px; width: 180px; text-align: center; letter-spacing: 2px; }
+    button { font-size: 1.2em; padding: 12px 30px; margin: 20px; background: #1976d2; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #1565c0; }
+    #result { font-size: 1.5em; margin-top: 30px; padding: 20px; border-radius: 8px; min-height: 100px; }
+    .win { background: #c8e6c9; color: #2e7d32; font-weight: bold; }
+    .lose { background: #ffcdd2; color: #c62828; }
+    .near { background: #fff3e0; color: #ef6c00; }
+    .loading { color: #555; }
+  </style>
 </head>
 <body>
 
-<div class="app-container">
-    <div class="display-area">
-        <div class="status" id="langLabel">MYANMAR MODE</div>
-        <div class="original" id="origText">နှိပ်ပြီး စကားပြောပါ</div>
-        <div class="translated" id="transText"></div>
-    </div>
+  <h1>ထိုင်းထီ စစ်ဆေးရာ</h1>
+  <p>၆ လုံး ထည့်ပါ (ဥပမာ ၆၆၉၆၈၇)</p>
 
-    <div class="footer">
-        <div class="controls-row">
-            <button class="side-btn" onclick="manualSwitch()" title="Switch Language">🔄</button>
+  <input type="text" id="ticket" placeholder="123456" maxlength="6" pattern="\d{6}"/>
+  <button onclick="checkLotto()">စစ်ဆေးမယ်</button>
 
-            <button class="main-mic-btn btn-mm" id="micBtn" onclick="toggleMic()">
-                <span style="font-size:32px; color:white; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">🎤</span>
-            </button>
+  <div id="result"></div>
 
-            <button class="side-btn" onclick="replayAudio()" title="Replay Translation">🔊</button>
-        </div>
-        <div class="hint" id="hintText">မြန်မာဘာသာကို နားထောင်မည်</div>
-    </div>
-</div>
+  <script>
+    async function checkLotto() {
+      const num = document.getElementById('ticket').value.trim();
+      const resultDiv = document.getElementById('result');
 
-<script>
-    let recognition;
-    let isListening = false;
-    let currentInputLang = 'my-MM'; 
-    let lastTranslation = ""; 
-    let lastTargetLang = "";  
+      if (!/^\d{6}$/.test(num)) {
+        resultDiv.innerHTML = "<p style='color:red'>၆ လုံး ဂဏန်းအတိအကျ ထည့်ပါ</p>";
+        return;
+      }
 
-    function speak(text, lang) {
-        if (!text) return;
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = lang;
-        window.speechSynthesis.speak(utterance);
-    }
+      resultDiv.innerHTML = "<p class='loading'>စစ်ဆေးနေပါတယ်...</p>";
 
-    function replayAudio() {
-        if (lastTranslation !== "") {
-            const speechLang = lastTargetLang === 'km' ? 'km-KH' : 'my-MM';
-            speak(lastTranslation, speechLang);
+      try {
+        // rayriffy API က latest ရလဒ်ကို ယူမယ်
+        const res = await fetch('https://lotto.api.rayriffy.com/latest');
+        const data = await res.json();
+
+        if (data.status !== 'success') {
+          throw new Error("API မှ အချက်အလက် မရပါ");
         }
-    }
 
-    function manualSwitch() {
-        if (isListening) recognition.stop();
-        switchLanguageLogic();
-    }
+        const drawDate = data.response.date; // ဥပမာ "1 มีนาคม 2569"
+        const prizes = data.response; // အားလုံး ရလဒ်တွေ ရှိတယ်
 
-    function switchLanguageLogic() {
-        const micBtn = document.getElementById('micBtn');
-        const langLabel = document.getElementById('langLabel');
-        const hintText = document.getElementById('hintText');
+        let prizeText = "";
+        let found = false;
+        let prizeName = "";
 
-        if (currentInputLang === 'my-MM') {
-            currentInputLang = 'km-KH';
-            micBtn.className = 'main-mic-btn btn-kh';
-            langLabel.innerText = "CAMBODIA MODE";
-            hintText.innerText = "ကမ္ဘောဒီးယားဘာသာကို နားထောင်မည်";
+        // ตรวจรางวัลที่ 1
+        if (prizes.first === num) {
+          prizeText = "၁ နှစ်ရတယ်! 🎉 ၆ သန်း ရတယ်";
+          prizeName = "ထီပေါက် - တစ်နှစ်ရတယ်";
+          found = true;
+        }
+        // เลขหน้า 3 ตัว (2 รางวัล)
+        else if (prizes.last3f.includes(num.slice(0,3)) || prizes.last3b.includes(num.slice(3,6))) {
+          prizeText = "၃ လုံး နောက်ဆုံး / ရှေ့ ပေါက်တယ်! ၄၀၀၀ ဘတ်";
+          prizeName = "၃ လုံး";
+          found = true;
+        }
+        // เลขท้าย 2 ตัว
+        else if (prizes.last2 === num.slice(4,6)) {
+          prizeText = "၂ လုံး ပေါက်တယ်! ၂၀၀၀ ဘတ်";
+          prizeName = "၂ လုံး";
+          found = true;
+        }
+        // ถ้าใกล้เคียง (เช่น เลขท้าย 3 ตัว หรืออื่นๆ) สามารถเพิ่ม logic ได้
+
+        if (found) {
+          resultDiv.innerHTML = `
+            <p class="win">${prizeText}</p>
+            <p>ထီနှုတ်ချက်ရက်စွဲ → ${drawDate}</p>
+            <small>(${prizeName})</small>
+          `;
         } else {
-            currentInputLang = 'my-MM';
-            micBtn.className = 'main-mic-btn btn-mm';
-            langLabel.innerText = "MYANMAR MODE";
-            hintText.innerText = "မြန်မာဘာသာကို နားထောင်မည်";
-        }
-    }
-
-    function toggleMic() {
-        if (isListening) {
-            recognition.stop();
-            return;
-        }
-        startListening();
-    }
-
-    function startListening() {
-        if (!('webkitSpeechRecognition' in window)) {
-            alert("Chrome Browser သုံးပေးပါ။");
-            return;
+          resultDiv.innerHTML = `
+            <p class="lose">ဒီတစ်ခါ မပေါက်သေးဘူး 😔</p>
+            <p>နောက်ဆုံးထီ ရက်စွဲ → ${drawDate}</p>
+          `;
         }
 
-        recognition = new webkitSpeechRecognition();
-        recognition.lang = currentInputLang;
-        
-        const micBtn = document.getElementById('micBtn');
-
-        recognition.onstart = () => {
-            isListening = true;
-            micBtn.classList.add('listening');
-        };
-
-        recognition.onresult = async (event) => {
-            const transcript = event.results[0][0].transcript;
-            document.getElementById('origText').innerText = transcript;
-
-            const targetLang = (currentInputLang === 'my-MM') ? 'km' : 'my';
-
-            try {
-                const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${currentInputLang.split('-')[0]}&tl=${targetLang}&dt=t&q=${encodeURI(transcript)}`);
-                const data = await res.json();
-                const translated = data[0][0][0];
-
-                document.getElementById('transText').innerText = translated;
-                
-                lastTranslation = translated;
-                lastTargetLang = targetLang;
-
-                speak(translated, targetLang === 'km' ? 'km-KH' : 'my-MM');
-                switchLanguageLogic();
-
-            } catch (e) {
-                console.error("Error:", e);
-            }
-        };
-
-        recognition.onend = () => {
-            isListening = false;
-            micBtn.classList.remove('listening');
-        };
-
-        recognition.start();
+      } catch (err) {
+        resultDiv.innerHTML = `<p style="color:red">အမှားတက်နေတယ်: ${err.message}</p>`;
+      }
     }
-</script>
+  </script>
 
 </body>
 </html>
